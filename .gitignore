@@ -100,6 +100,7 @@ InitTestScene*.unity*
 
 .vscode*
 /Packages*
+/ProjectSettings*
 /UIElementsSchema*
 /Assets/*
 !/Assets/About*
