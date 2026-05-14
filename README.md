@@ -31,7 +31,7 @@ The mod is configurable via the BepInEx config file (`erixmekx.cfg`). You can tu
 - **Damage Scaling:** Tune how quickly a robot takes damage from environmental failures.
 
 ## 🚀 Installation
-1. Ensure you have **BepInEx** and **StationeersLaunchPad** installed for Stationeers.
+1. Ensure you have [**BepInEx**](https://github.com/BepInEx/BepInEx) and [**StationeersLaunchPad**](https://github.com/StationeersLaunchPad/StationeersLaunchPad) installed for Stationeers.
 2. Download the latest release of `ErixMekx`.
 3. Place the mod folder into your `~/documents/My Games/Stationeers/mods` folder.
 
