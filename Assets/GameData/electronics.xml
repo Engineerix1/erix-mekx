@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<GameData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <ElectronicsPrinterRecipes>
+        <RecipeData>
+            <PrefabName>TestMoldule</PrefabName>
+            <Recipe>
+                <Time>1</Time>
+                <Energy>1</Energy>
+                <Iron>1</Iron>
+                <Gold>1</Gold>
+                <Copper>1</Copper>
+            </Recipe>
+        </RecipeData>
+        <RecipeData>
+            <PrefabName>TestMoldule</PrefabName>
+            <Recipe>
+                <Time>1</Time>
+                <Energy>1</Energy>
+                <Iron>1</Iron>
+                <Gold>1</Gold>
+                <Copper>1</Copper>
+            </Recipe>
+        </RecipeData>
+
+        <!-- <RecipeData>
+            <PrefabName>ItemKitRoverMKI</PrefabName>
+            <Recipe>
+                <Time>90</Time>
+                <Energy>2000</Energy>
+                <Copper>15</Copper>
+                <Steel>80</Steel>
+                <Electrum>10</Electrum>
+                <Constantan>5</Constantan>
+            </Recipe>
+            <RecipeTier>TierTwo</RecipeTier>
+        </RecipeData>
+        <RecipeData>
+            <PrefabName>ItemKitLarreDockCollector</PrefabName>
+            <Recipe>
+                <Time>150</Time>
+                <Energy>10000</Energy>
+                <Inconel>10</Inconel>
+                <Astroloy>15</Astroloy>
+                <Hastelloy>5</Hastelloy>
+            </Recipe>
+        </RecipeData> -->
+ 
+    </ElectronicsPrinterRecipes>
+</GameData>

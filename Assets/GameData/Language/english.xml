@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Language xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>English</Name>
+  <Code>EN</Code>
+  <Font>font_english</Font>
+  <Things>
+    <Record>
+      <Key>LungsRobot</Key>
+      <Value>Robot Lungs</Value>
+    </Record>
+    <Record>
+      <Key>PassiveRadiatorMod</Key>
+      <Value>Passive Module</Value>
+    </Record>
+    <Record>
+      <Key>ModuleRadiatorActive</Key>
+      <Value>Active Module</Value>
+    </Record>
+  </Things>
+  <Slots>
+    <Record>
+      <Key>IntakeTank</Key>
+      <Value>Intake</Value>
+    </Record>
+    <Record>
+      <Key>ExhaustTank</Key>
+      <Value>Exhaust</Value>
+    </Record>
+  </Slots>
+  <Interactables>
+    <Record>
+      <Key>FlushLoop</Key>
+      <Value>Flush</Value>
+    </Record>
+    <Record>
+      <Key>PumpLoop</Key>
+      <Value>Pump </Value>
+    </Record>
+    <Record>
+      <Key>VentLoop</Key>
+      <Value>Vent </Value>
+    </Record>
+  </Interactables>
+</Language>
