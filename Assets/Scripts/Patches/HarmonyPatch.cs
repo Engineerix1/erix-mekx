@@ -28,7 +28,7 @@ namespace ErixMekx.Patches
 
             const Chemistry.GasType initCoolant = Chemistry.GasType.Water;
             MoleQuantity quantity = new((loop.InternalAtmosphere.Volume * 0.5 / Mole.MolarVolume(initCoolant)).ToDouble());
-            MoleEnergy energy = new(Chemistry.Temperature.TwentyDegrees, Mole.SpecificHeat(initCoolant), quantity);
+            MoleEnergy energy = new(Chemistry.Temperature.ZeroDegrees, Mole.SpecificHeat(initCoolant), quantity);
             GasMixture coolant = new(new Mole(initCoolant, quantity, energy));
             AtmosphericEventInstance.CreateAdd(atmosphere: loop.InternalAtmosphere, gasMixture: coolant);
         }

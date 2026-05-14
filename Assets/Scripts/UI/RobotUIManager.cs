@@ -88,6 +88,7 @@ namespace ErixMekx.UI
                 }
                 TargetSlot.OnOccupantChange += OnSlotOccupantChanged;
                 TargetSlot.RefreshSlotDisplay();
+                Debug.Log("Window " + targetBtn.ParentWindow);
             }
             catch (System.Exception ex)
             {
@@ -97,7 +98,7 @@ namespace ErixMekx.UI
 
         public void OnSlotOccupantChanged()
         {
-            // if (TargetSlot.Contains<ILoopModule>()) TargetSlot.Get<ILoopModule>().Install(Robot.LungsSlot.Get<LungsRobot>());
+            TargetSlot.Display.InitialiseRoot();
         }
 
 

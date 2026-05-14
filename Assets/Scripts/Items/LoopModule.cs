@@ -15,20 +15,16 @@ namespace ErixMekx.Items
     {
         // The core method called by the Organ every tick
         void Tick();
-        void Install(LungsRobot lungs);
 
         // Allows the organ to query if the module is currently active/powered
         bool IsActive { get; }
     }
     public abstract class LoopModuleBase : Item, ILoopModule
     {
-        public LungsRobot Loop;
+        public Human Robot => ParentSlot.Parent as Human;
+        public LungsRobot Loop => Robot.OrganLungs as LungsRobot;
         public virtual bool IsActive { get; protected set; } = true;
 
-        public void Install(LungsRobot lungs)
-        {
-            Loop = lungs;
-        }
         // Abstract method: Each specific module (Water, Cryo, etc.) implements its own loop logic
         public abstract void Tick();
 

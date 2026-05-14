@@ -25,12 +25,6 @@ namespace ErixMekx.Organs
 
         private BatteryCell lastBatteryInstance = null;
         private float lastBatteryCharge = -1f;
-
-        void ChangeModule()
-        {
-            if (ModuleSlot.Contains<ILoopModule>()) ModuleSlot.Get<ILoopModule>().Install(this);
-        }
-
         public override void OnLifeTick()
         {
             if (InternalAtmosphere == null) return;
@@ -151,9 +145,9 @@ namespace ErixMekx.Organs
                     DamageState.Damage(ChangeDamageType.Increment, Mathf.Min(3f * overheatFactor, damageCap), DamageUpdateType.Burn);
                 }
 
-                //TODO check how this works, if frozen material needs to be added back in or something
-                GasMixture solids = InternalAtmosphere.GasMixture.CheckForFreezing(InternalAtmosphere.PressureGassesAndLiquids);
-                DamageState.Damage(ChangeDamageType.Increment, Mathf.Min(solids.GetQuantity, damageCap), DamageUpdateType.Brute);
+                //TODO check how this works, if frozen material needs to be added back in, etc.
+                // GasMixture solids = InternalAtmosphere.GasMixture.CheckForFreezing(InternalAtmosphere.PressureGassesAndLiquids);
+                // DamageState.Damage(ChangeDamageType.Increment, Mathf.Min(solids.GetQuantity, damageCap), DamageUpdateType.Brute);
             }
             else
             {
@@ -198,12 +192,6 @@ namespace ErixMekx.Organs
         public void FlushLoop()
         {
             AtmosphereHelper.Mix(InternalAtmosphere, ParentEntity.BreathingAtmosphere, AtmosphereHelper.MatterState.Liquid);
-        }
-
-        public override void OnDestroy()
-        {
-            base.OnDestroy();
-            ModuleSlot.OnOccupantChange -= ChangeModule;
         }
     }
 }

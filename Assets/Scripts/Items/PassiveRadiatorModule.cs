@@ -27,10 +27,11 @@ namespace ErixMekx.Items
         //TODO Look into adding a filter as well
         public Atmosphere SourceAtmosphere => IntakeSlot.Get()?.InternalAtmosphere;
         //TODO possibly add to the world grid as a last resort
-        public Atmosphere TargetAtmosphere => ExhaustSlot.Get<GasCanister>()?.InternalAtmosphere ?? (ParentSlot.Parent as Human)?.BreathingAtmosphere;
+        public Atmosphere TargetAtmosphere => ExhaustSlot.Get<GasCanister>()?.InternalAtmosphere ?? Robot?.BreathingAtmosphere;
 
         public override void Tick()
         {
+            if (Robot == null || Loop == null) return;
             if (Loop.InternalAtmosphere == null || Loop.ParentEntity.BreathingAtmosphere == null) return;
             // Handle continuous pumping and venting/flushing when toggles are active
             if ((Loop.ParentEntity as Human).RobotBattery)
