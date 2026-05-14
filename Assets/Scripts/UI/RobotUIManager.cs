@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Assets.Scripts;
 using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Entities;
@@ -22,7 +23,7 @@ namespace ErixMekx.UI
 
         private SlotDisplayButton ButtonPrefab => InventoryWindowManager.Instance.WindowPrefab.ButtonPrefab;
         // private ClothingPanel ClothingPanel => InventoryManager.Instance.ClothingPanel;
-        private Slot TargetSlot => Robot.LungsSlot.Get<LungsRobot>().ModuleSlot;
+        private Slot TargetSlot => Robot?.LungsSlot.Get<LungsRobot>()?.ModuleSlot;
         public void Initialize()
         {
             if (Instance == null)
@@ -97,7 +98,7 @@ namespace ErixMekx.UI
 
         public void OnSlotOccupantChanged()
         {
-            TargetSlot.Display.InitialiseRoot();
+            TargetSlot?.Display.InitialiseRoot();
         }
 
 
