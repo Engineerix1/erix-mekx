@@ -97,14 +97,23 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
-
-.vscode*
-*.meta
-/Packages*
-/ProjectSettings*
-/UIElementsSchema*
-/Assets/*
-!/Assets/About*
-!/Assets/Scripts*
-!/Assets/GameData*
+# --- System & IDE ---
+.vscode/
 *repomix*
+
+# --- Unity Folders ---
+/Packages/
+/ProjectSettings/
+/UIElementsSchema/
+
+# --- The Whitelist Logic ---
+# 1. Ignore everything in Assets by default
+/Assets/*
+
+# 2. Allow the specific directories we need
+!/Assets/About/
+!/Assets/Scripts/
+!/Assets/GameData/
+
+# 3. Now that the folders are "open", ignore all .meta files globally
+*.meta
