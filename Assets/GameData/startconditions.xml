@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<GameData>
+    <Spawn Id="DefaultRobot">
+        <Item Id="ItemBatteryCellLarge" SlotId="Battery">
+            <Charge State="Full" />
+        </Item>
+        <Spawn Id="DefaultJetpack" />
+        <Spawn Id="DefaultToolbelt" />
+        <Item Id="ItemRadiatorModule" />
+    </Spawn>
+
+</GameData>

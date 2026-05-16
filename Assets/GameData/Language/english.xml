@@ -4,18 +4,14 @@
   <Code>EN</Code>
   <Font>font_english</Font>
   <Things>
-    <Record>
-      <Key>LungsRobot</Key>
-      <Value>Robot Lungs</Value>
-    </Record>
-    <Record>
-      <Key>PassiveRadiatorMod</Key>
-      <Value>Passive Module</Value>
-    </Record>
-    <Record>
-      <Key>ModuleRadiatorActive</Key>
-      <Value>Active Module</Value>
-    </Record>
+    <RecordThing>
+      <Key>OrganLungsRobot</Key>
+      <Value>Robot Loop</Value>
+    </RecordThing>
+    <RecordThing>
+      <Key>ItemRadiatorModule</Key>
+      <Value>Radiator Module</Value>
+    </RecordThing>
   </Things>
   <Slots>
     <Record>

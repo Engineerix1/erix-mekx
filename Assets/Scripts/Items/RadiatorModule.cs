@@ -14,7 +14,7 @@ namespace ErixMekx.Items
     /// It passively moves heat from the internal lungs atmosphere
     /// and dumps it into the external environment via convection.
     /// </summary>
-    public class PassiveRadiatorMod : LoopModuleBase
+    public class RadiatorModule : LoopModuleBase
     {
         public static readonly GameString VentLoop = GameString.Create("VentLoop", "Vent ");
         public bool CanVent => InternalAtmosphere != null && TargetAtmosphere != null;

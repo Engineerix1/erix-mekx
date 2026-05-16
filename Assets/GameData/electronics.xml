@@ -2,23 +2,13 @@
 <GameData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
     <ElectronicsPrinterRecipes>
         <RecipeData>
-            <PrefabName>TestMoldule</PrefabName>
+            <PrefabName>ItemRadiatorModule</PrefabName>
             <Recipe>
-                <Time>1</Time>
-                <Energy>1</Energy>
-                <Iron>1</Iron>
-                <Gold>1</Gold>
-                <Copper>1</Copper>
-            </Recipe>
-        </RecipeData>
-        <RecipeData>
-            <PrefabName>TestMoldule</PrefabName>
-            <Recipe>
-                <Time>1</Time>
-                <Energy>1</Energy>
-                <Iron>1</Iron>
-                <Gold>1</Gold>
-                <Copper>1</Copper>
+                <Time>10</Time>
+                <Energy>2000</Energy>
+                <Iron>8</Iron>
+                <Gold>2</Gold>
+                <Copper>10</Copper>
             </Recipe>
         </RecipeData>
 

@@ -1,3 +1,4 @@
+using Assets.Scripts;
 using Assets.Scripts.Atmospherics;
 using Assets.Scripts.Localization2;
 using Assets.Scripts.Objects;
@@ -30,16 +31,17 @@ namespace ErixMekx.Organs
             if (InternalAtmosphere == null) return;
 
             // 1. Global Power-to-Heat Conversion
-            // HandleGlobalWasteHeat();
+            HandleGlobalWasteHeat();
 
-            // 2. Passive Convection
-            HandlePassiveConvection();
+            // 2. Module Logic
+            if (ModuleSlot.Contains<ILoopModule>())
+            {
+                ILoopModule module = ModuleSlot.Get<ILoopModule>();
+                if (module.IsActive)
+                    module?.Tick();
+            }
 
-            // 3. Module Logic
-            ILoopModule module = ModuleSlot?.Get<ILoopModule>();
-            module?.Tick();
-
-            // 4. Damage Tracking
+            // 3. Damage Tracking
             ProcessEnvironmentalDamage();
         }
 
@@ -76,29 +78,6 @@ namespace ErixMekx.Organs
 
             // Update tracker for next tick
             lastBatteryCharge = currentCharge;
-            Debug.Log($"Heat Added: {heatAmount}");
-        }
-
-        public override void OnPowerTick()
-        {
-            HandleGlobalWasteHeat();
-        }
-        private void HandlePassiveConvection()
-        {
-            if (ParentEntity?.BreathingAtmosphere == null) return;
-
-            // Atmosphere worldAtmosphere = ParentEntity.BreathingAtmosphere;
-            // MoleEnergy moleEnergy3 = AtmosphereHelper.CalculateThingConvection(this, worldAtmosphere, InternalAtmosphere);
-            // MoleEnergy moleEnergy4 = AtmosphereHelper.CalculateThingEntropy(this, worldAtmosphere, InternalAtmosphere);
-            // AtmosphereHelper.DoConvection(InternalAtmosphere, worldAtmosphere, moleEnergy3, WorldGrid);
-            // MoleEnergy moleEnergy5 = moleEnergy4 - ((moleEnergy3 > MoleEnergy.Zero) ? moleEnergy3 : MoleEnergy.Zero);
-            // if (moleEnergy5 > MoleEnergy.Zero)
-            // {
-            //     AtmosphereHelper.DoEntropy(InternalAtmosphere, moleEnergy5);
-            // }
-            // Debug.Log($"radiated: {InternalAtmosphere.EnergyRadiated}");
-            // Debug.Log($"convected: {moleEnergy3.ToFloat()}");
-            // Debug.Log($"entropy: {moleEnergy5.ToFloat()}");
         }
 
         private void ProcessEnvironmentalDamage()
@@ -125,8 +104,7 @@ namespace ErixMekx.Organs
                 }
 
                 // Overpressure Damage
-                float pressureLimit = (Chemistry.ONE_ATMOSPHERE * Systems.RobotConfig.PressureLimitAtm.Value);
-                float pressureRatio = InternalAtmosphere.PressureGassesAndLiquids.ToFloat() / pressureLimit;
+                float pressureRatio = (InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat();
                 if (pressureRatio > Systems.RobotConfig.OverpressureThreshold.Value)
                 {
                     float overpressureFactor = Mathf.Clamp01(pressureRatio - Systems.RobotConfig.OverpressureThreshold.Value);
@@ -193,5 +171,28 @@ namespace ErixMekx.Organs
         {
             AtmosphereHelper.Mix(InternalAtmosphere, ParentEntity.BreathingAtmosphere, AtmosphereHelper.MatterState.Liquid);
         }
+
+
+        //TODO: Either we blow up and keep around to give players a chance to fix lungs or kill the player with the explosion
+		// public override void OnDamageDestroyed()
+        // {
+        //     // SetBrokenMesh();
+        //     if (GameManager.RunSimulation && !_hasBlown)
+		// 	{
+		// 		if (base.InternalAtmosphere.PressureGassesAndLiquids > PressurekPa.Zero)
+		// 		{
+		// 			global::Explosion.Explode(_explosionForce * (base.InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat(), radius: Mathf.Clamp(_explosionRadius * (base.InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat(), 0f, _maxExplosionRadius), pos: base.transform.position, maxDamage: float.MaxValue, mineTerrain: true);
+		// 			AtmosphericEventInstance.CloneGlobalAddGasMix(base.WorldGrid, new GasMixture(base.InternalAtmosphere.GasMixture), spark: true);
+		// 			AtmosphericEventInstance.Reset(base.InternalAtmosphere);
+		// 		}
+		// 		DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Burn);
+		// 		DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Brute);
+		// 		_hasBlown = true;
+		// 	}
+		// 	else if (_hasBlown)
+		// 	{
+		// 		base.OnDamageDestroyed();
+		// 	}
+		// }
     }
 }

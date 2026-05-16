@@ -15,6 +15,7 @@ namespace ErixMekx.UI
         public TextMeshProUGUI TitleLabel;
         public TextMeshProUGUI InfoIntakePressure;
         public TextMeshProUGUI InfoIntakeTemperature;
+        public TextMeshProUGUI InfoCoolantFill;
         public Image pressureBar;
         public ImageToggle PressureChangeIcon;
         public ImageToggle TermperatureChangeIcon;
@@ -23,6 +24,7 @@ namespace ErixMekx.UI
         [Header("StateInstances")]
         private StateInstance _intakeTemperatureState;
         private StateInstance _intakePressureState;
+        private StateInstance _coolantFillState;
 
         [Header("Data")]
         private PressurekPa _intakePressure;
@@ -55,6 +57,9 @@ namespace ErixMekx.UI
             //     pressureBar.fillAmount = num2;
             // };
             _intakePressureState.ChangeEvents();
+
+            _coolantFillState = new StateInstance(InfoCoolantFill);
+            _coolantFillState.ChangeEvents();
         }
 
         [UsedImplicitly]
@@ -102,6 +107,8 @@ namespace ErixMekx.UI
 
                 HandlePressureIcons(currentPressure);
             }
+
+            _coolantFillState.UpdateText(CoolingLoop.InternalAtmosphere.LiquidVolumeRatio * 100f);
 
             UpdateTitle();
         }

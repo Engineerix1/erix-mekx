@@ -21,6 +21,7 @@ namespace ErixMekx.Items
     }
     public abstract class LoopModuleBase : Item, ILoopModule
     {
+        //TODO: Circuit connections and I'd like bboxes for it's slots as well as a reading from the atmospheric tablet
         public Human Robot => ParentSlot.Parent as Human;
         public LungsRobot Loop => Robot.OrganLungs as LungsRobot;
         public virtual bool IsActive { get; protected set; } = true;

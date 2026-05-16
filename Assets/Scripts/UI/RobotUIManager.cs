@@ -14,6 +14,7 @@ namespace ErixMekx.UI
 {
     public class RobotUIManager : ManagerBase
     {
+        //TODO: We'll need to track the fullness of the lungs and what they contain somehow. I'd also like an integrity status
         public static RobotUIManager Instance { get; private set; }
 
         private GameObject _robotHUDPanelObj;
@@ -92,7 +93,7 @@ namespace ErixMekx.UI
             }
             catch (System.Exception ex)
             {
-                ErixMekxMain.Log.LogError($"[RobotUIManager] Lungs Injection Failed: {ex}");
+                ErixMekxMain.Log($"[RobotUIManager] Lungs Injection Failed: {ex}");
             }
         }
 

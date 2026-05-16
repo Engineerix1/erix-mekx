@@ -25,7 +25,7 @@ namespace ErixMekx.Systems
 
         public static void Init(ConfigFile config)
         {
-            TempMinCelsius = config.Bind("Thermal Limits", "Temperature Min Celsius", -60f, "Minimum operating temperature before cold damage occurs.");
+            TempMinCelsius = config.Bind("Thermal Limits", "Temperature Min Celsius", -20f, "Minimum operating temperature before cold damage occurs.");
             TempMaxCelsius = config.Bind("Thermal Limits", "Temperature Max Celsius", 60f, "Maximum operating temperature before heat damage occurs.");
             PressureLimitAtm = config.Bind("Thermal Limits", "Pressure Limit Atm", .5f, "The nominal pressure limit of the cooling loop.");
 
