@@ -12,6 +12,10 @@
       <Key>ItemRadiatorModule</Key>
       <Value>Radiator Module</Value>
     </RecordThing>
+    <RecordThing>
+      <Key>ItemCoolantFilterModule</Key>
+      <Value>Coolant Filter Module</Value>
+    </RecordThing>
   </Things>
   <Slots>
     <Record>

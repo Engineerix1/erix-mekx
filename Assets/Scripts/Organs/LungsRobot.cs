@@ -25,11 +25,19 @@ namespace ErixMekx.Organs
         protected override TemperatureKelvin TemperatureMin => new(Chemistry.Temperature.ZERO_DEGREES + RobotConfig.TempMinCelsius.Value);
         protected override TemperatureKelvin TemperatureMax => new(Chemistry.Temperature.ZERO_DEGREES + RobotConfig.TempMaxCelsius.Value);
         protected override PressurekPa ToxinLevel => base.InternalAtmosphere.PartialPressureAcid;
+        // Public mirror of ToxinLevel for modules (e.g. CoolantFilterModule) that live outside this class and can't see the protected override.
+        public PressurekPa ContaminantLevel => base.InternalAtmosphere.PartialPressureAcid;
         public PressurekPa PressureLimit => new(Chemistry.ONE_ATMOSPHERE * RobotConfig.PressureLimitAtm.Value);
         public float VentRate = Chemistry.ONE_ATMOSPHERE / 2;
         public float PumpRate => RobotConfig.PumpRate.Value;
         public float Overpressure => RobotConfig.OverpressureThreshold.Value;
         public bool IsEmpty => InternalAtmosphere?.GasMixture.GetTotalMolesGassesAndLiquids < Chemistry.MINIMUM_VALID_TOTAL_MOLES;
+
+        // Leak / Rupture state
+        private float overpressureStress = 0f;
+        public bool IsLeaking { get; private set; } = false;
+        public float LeakSeverity { get; private set; } = 0f;
+        private bool hasExploded = false;
 
         private BatteryCell lastBatteryInstance = null;
         public BatteryCell RobotBattery => (ParentEntity as Human).RobotBattery;
@@ -38,13 +46,9 @@ namespace ErixMekx.Organs
         {
             get
             {
-                if (!IsEmpty)
-                {
-                    // return !_hasBlown;
-                    // return leaks;
-                    return false;
-                }
-                return true;
+                if (IsEmpty) return true;
+                if (IsLeaking) return true;
+                return false;
             }
         }
         public override void OnLifeTick()
@@ -55,6 +59,8 @@ namespace ErixMekx.Organs
                 EvaluateModules();
                 CheckAtmosphereState();
                 ProcessEnvironmentalDamage();
+                ProcessLeakState();
+                ProcessCoolantDegradation();
             }
         }
 
@@ -204,6 +210,82 @@ namespace ErixMekx.Organs
             }
         }
 
+        /// <summary>
+        /// Sustained overpressure builds structural stress; once that stress crosses a
+        /// threshold the loop springs an active leak that keeps bleeding gas and taking
+        /// brute damage - and keeps getting worse - until a player patches it via
+        /// RepairLeak(). This replaces passively tanking overpressure damage forever.
+        /// </summary>
+        private void ProcessLeakState()
+        {
+            float pressureRatio = (InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat();
+
+            if (pressureRatio > RobotConfig.OverpressureThreshold.Value)
+            {
+                overpressureStress += (pressureRatio - RobotConfig.OverpressureThreshold.Value) * RobotConfig.OverpressureStressRate.Value;
+            }
+            else
+            {
+                overpressureStress = Mathf.Max(0f, overpressureStress - RobotConfig.OverpressureStressRate.Value);
+            }
+
+            if (!IsLeaking)
+            {
+                if (overpressureStress < RobotConfig.SustainedOverpressureLimit.Value) return;
+                IsLeaking = true;
+                LeakSeverity = RobotConfig.LeakSeverityBase.Value;
+            }
+
+            LeakSeverity = Mathf.Clamp01(LeakSeverity + RobotConfig.LeakGrowthRate.Value);
+
+            float ventAmount = RobotConfig.LeakVentRate.Value * LeakSeverity;
+            foreach (Chemistry.GasType gasType in Assets.Scripts.EnumCollections.GasTypes.Values)
+            {
+                if (gasType == Chemistry.GasType.Undefined) continue;
+                InternalAtmosphere.GasMixture.Remove(gasType, new MoleQuantity(ventAmount));
+            }
+
+            DamageState.Damage(ChangeDamageType.Increment, RobotConfig.LeakStructuralDamageRate.Value * LeakSeverity, DamageUpdateType.Brute);
+        }
+
+        /// <summary>
+        /// Patches an active leak. Invoked when a player services the loop (Flush interaction) -
+        /// severe leaks need repeated servicing to fully seal.
+        /// </summary>
+        private void RepairLeak()
+        {
+            if (!IsLeaking) return;
+
+            overpressureStress = 0f;
+            LeakSeverity -= RobotConfig.LeakRepairAmount.Value;
+            if (LeakSeverity > 0f) return;
+
+            LeakSeverity = 0f;
+            IsLeaking = false;
+        }
+
+        /// <summary>
+        /// Coolant is not inert: it slowly breaks down into a corrosive contaminant
+        /// (hydrochloric acid) over time, faster when the loop runs hot or the organ is
+        /// already damaged. The buildup feeds directly into the existing ToxinLevel/
+        /// ToxicTypes damage check above, so an unmaintained loop starts poisoning itself.
+        /// </summary>
+        private void ProcessCoolantDegradation()
+        {
+            if (IsEmpty) return;
+
+            float heatStress = Mathf.Max(0f, (InternalAtmosphere.Temperature - TemperatureMax).ToFloat()) * RobotConfig.CoolantDegradationHeatFactor.Value;
+            float damageStress = Mathf.Max(0f, 1f - DamageEfficiency) * RobotConfig.CoolantDegradationDamageFactor.Value;
+            float degradationAmount = RobotConfig.CoolantDegradationRate.Value * (1f + heatStress + damageStress);
+            if (degradationAmount <= 0f) return;
+
+            MoleQuantity quantity = new(degradationAmount);
+            InternalAtmosphere.GasMixture.Remove(Chemistry.GasType.Water, quantity);
+
+            MoleEnergy energy = new(InternalAtmosphere.Temperature, Mole.SpecificHeat(Chemistry.GasType.HydrochloricAcid), quantity);
+            InternalAtmosphere.Add(new GasMixture(new Mole(Chemistry.GasType.HydrochloricAcid, quantity, energy)));
+        }
+
         public override DelayedActionInstance InteractWith(Interactable interactable, Interaction interaction, bool doAction = true)
         {
             DelayedActionInstance delayedActionInstance = new()
@@ -229,6 +311,7 @@ namespace ErixMekx.Organs
                     if (Assets.Scripts.GameManager.RunSimulation)
                     {
                         FlushLoop();
+                        RepairLeak();
                     }
                     return delayedActionInstance.Succeed();
                 default:
@@ -241,55 +324,34 @@ namespace ErixMekx.Organs
         }
 
 
-        //TODO: Either we add leaks up and keep around to give players a chance to fix lungs or kill the player with the explosion
-        // public override void OnDamageDestroyed()
-        // {
-        //     // SetBrokenMesh();
-        //     if (GameManager.RunSimulation && !_hasBlown)
-        // 	{
-        // 		if (base.InternalAtmosphere.PressureGassesAndLiquids > PressurekPa.Zero)
-        // 		{
-        // 			global::Explosion.Explode(_explosionForce * (base.InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat(), radius: Mathf.Clamp(_explosionRadius * (base.InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat(), 0f, _maxExplosionRadius), pos: base.transform.position, maxDamage: float.MaxValue, mineTerrain: true);
-        // 			AtmosphericEventInstance.CloneGlobalAddGasMix(base.WorldGrid, new GasMixture(base.InternalAtmosphere.GasMixture), spark: true);
-        // 			AtmosphericEventInstance.Reset(base.InternalAtmosphere);
-        // 		}
-        // 		DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Burn);
-        // 		DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Brute);
-        // 		_hasBlown = true;
-        // 	}
-        // 	else if (_hasBlown)
-        // 	{
-        // 		base.OnDamageDestroyed();
-        // 	}
-        // }
-        // public override void OnDestroy()
-        // {
-        // 	if (Singleton<GameManager>.IsQuitting)
-        // 	{
-        // 		return;
-        // 	}
-        // 	base.OnDestroy();
-        // 	foreach (LeakReference leakReference in LeakReferences)
-        // 	{
-        // 		if (leakReference != null && !(leakReference.Visualizer == null))
-        // 		{
-        // 			leakReference.Visualizer.SetActive(value: false);
-        // 			if (leakReference.LeakTask.Status != UniTaskStatus.Pending)
-        // 			{
-        // 				leakReference.Cancel();
-        // 			}
-        // 		}
-        // 	}
-        // 	LeakReferences = null;
-        // 	if (!Singleton<GameManager>.IsQuitting)
-        // 	{
-        // 		base.OnDestroy();
-        // 		ElectricityManager.Deregister(this);
-        // 		if (!IsCursor)
-        // 		{
-        // 			CircuitHolders.Deregister(this);
-        // 		}
-        // 	}
-        // }
+        /// <summary>
+        /// Sustained overpressure gives players a repairable warning (see ProcessLeakState/
+        /// RepairLeak) well before the organ is actually destroyed. If it's ignored long
+        /// enough to reach full damage, the loop finally ruptures catastrophically here.
+        /// </summary>
+        public override void OnDamageDestroyed()
+        {
+            if (GameManager.RunSimulation && !hasExploded)
+            {
+                if (InternalAtmosphere.PressureGassesAndLiquids > PressurekPa.Zero)
+                {
+                    float pressureFactor = (InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat();
+                    global::Explosion.Explode(
+                        EXPLOSION_FORCE * pressureFactor,
+                        radius: Mathf.Clamp(EXPLOSION_RADIUS * pressureFactor, 0f, EXPLOSION_RADIUS),
+                        pos: transform.position,
+                        maxDamage: float.MaxValue,
+                        mineTerrain: true);
+                    AtmosphericEventInstance.CloneGlobalAddGasMix(WorldGrid, new GasMixture(InternalAtmosphere.GasMixture), spark: true);
+                    AtmosphericEventInstance.Reset(InternalAtmosphere);
+                }
+                DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Burn);
+                DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Brute);
+                hasExploded = true;
+                return;
+            }
+
+            base.OnDamageDestroyed();
+        }
     }
 }
