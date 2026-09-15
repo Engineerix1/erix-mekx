@@ -1,10 +1,8 @@
+// using Assets.Scripts;
 using Assets.Scripts.Atmospherics;
 using Assets.Scripts.Inventory;
 using Assets.Scripts.Localization2;
 using Assets.Scripts.Objects;
-using Assets.Scripts.Objects.Entities;
-using Assets.Scripts.Objects.Items;
-using ErixMekx.Organs;
 using UnityEngine;
 
 namespace ErixMekx.Items
@@ -16,146 +14,139 @@ namespace ErixMekx.Items
     /// </summary>
     public class RadiatorModule : LoopModuleBase
     {
-        public static readonly GameString VentLoop = GameString.Create("VentLoop", "Vent ");
-        public bool CanVent => InternalAtmosphere != null && TargetAtmosphere != null;
-
-        public static readonly GameString PumpLoop = GameString.Create("PumpLoop", "Pump ");
-        public bool CanPump => SourceAtmosphere != null && InternalAtmosphere != null;
-        public Slot CircuitSlot => Slots[0];
-        public Slot IntakeSlot => Slots[1];
-        public Slot ExhaustSlot => Slots[2];
-        //TODO Look into adding a filter as well
-        public Atmosphere SourceAtmosphere => IntakeSlot.Get()?.InternalAtmosphere;
-        //TODO possibly add to the world grid as a last resort
-        public Atmosphere TargetAtmosphere => ExhaustSlot.Get<GasCanister>()?.InternalAtmosphere ?? Robot?.BreathingAtmosphere;
-
-        public override void Tick()
+        public static GameString ImportLoop = GameString.Create("VentLoop", "Import ");
+        public static GameString ExportLoop = GameString.Create("PumpLoop", "Export ");
+        // public Event OnPressureChanged;
+        // public Slot CircuitSlot => Slots[0];
+        //TODO: Finish Circuit and look into adding a filter
+        public override void OnTick()
         {
-            if (Robot == null || Loop == null) return;
-            if (Loop.InternalAtmosphere == null || Loop.ParentEntity.BreathingAtmosphere == null) return;
-            // Handle continuous pumping and venting/flushing when toggles are active
-            if ((Loop.ParentEntity as Human).RobotBattery)
+            // if (Loop == null || Loop.InternalAtmosphere == null) return;
+            HandleLoopIntake();
+            HandleConvection();
+            HandleLoopReturn();
+        }
+        private void HandleLoopIntake()
+        {
+            // TODO: This could be handled with a pressure regulator style, with interacable buttons for player to set
+            if (Importing == 0) return;
+
+                // PerformPassiveGasTransfer(Loop.InternalAtmosphere, InternalAtmosphere);
+                float flowRate = Loop.PumpRate * PumpingEfficiency(); // Simplified rate
+
+                // Active return: If the module has power, it flows in
+                if (Loop.RequestPower(-20f * flowRate))
+                {
+                    AtmosphereHelper.MoveVolume(
+                        Loop.InternalAtmosphere,
+                        InternalAtmosphere,
+                        new VolumeLitres(flowRate),
+                        AtmosphereHelper.MatterState.Gas,
+                        MoleQuantity.Zero);
+                }
+        }
+        private void HandleConvection()
+        {
+            if (WorldAtmosphere == null) return;
+
+            // Simulate convection: Heat moves from the module's internal atmo to the world
+            TemperatureKelvin tempDiff = InternalAtmosphere.Temperature - WorldAtmosphere.Temperature;
+
+            MoleEnergy energyTransfer = new(tempDiff.ToFloat());
+
+            InternalAtmosphere.GasMixture.RemoveEnergy(energyTransfer);
+            WorldAtmosphere.GasMixture.AddEnergy(energyTransfer);
+        }
+        private void HandleLoopReturn()
+        {
+            if (Exporting == 0) return;
+            Debug.Log("Loop out");
+
+            float flowRate = Loop.PumpRate * PumpingEfficiency(); // Simplified rate
+
+            // Active return: If the module has power, it flows back
+            if (Loop.RequestPower(-100f * flowRate))
             {
-                if (Importing == 1) DoPumpLoop();
-                if (Exporting == 1) DoVentLoop();
+                AtmosphereHelper.MoveVolume(
+                    InternalAtmosphere,
+                    Loop.InternalAtmosphere,
+                    new VolumeLitres(flowRate),
+                    AtmosphereHelper.MatterState.Liquid,
+                    MoleQuantity.Zero);
             }
         }
-
-        public float VentingEfficiency()
-        {
-            // density of gas in lungs (higher density = harder to pump gas)
-            // AtmosphereHelper.GetDensityMilliMolesPerLire(InternalAtmosphere);
-            float densityGasFactor = (float)IdealGas.GetMilliMolesPerLitre(InternalAtmosphere.Volume, InternalAtmosphere.TotalMolesGases);
-            // pump head factor (higher pressure = harder to pump)
-            float pumpHeadFactor = (InternalAtmosphere.PressureGassesAndLiquids / TargetAtmosphere.PressureGassesAndLiquids).ToFloat();
-            // Maitenance factor (low maintenance = less efficient)
-            // OrganLungs.DamageEfficiency
-
-            return Mathf.Clamp01((pumpHeadFactor * Loop.DamageEfficiency) / densityGasFactor) * (float)DifficultySetting.Current.BreathingRate;
-        }
-
         public float PumpingEfficiency()
         {
             // fluid density of liquid tank (higher density = harder to pump fluid)
-            float densityLiquidFactor = AtmosphereHelper.GetDensityMilliMolesPerLire(SourceAtmosphere);
+            float densityLiquidFactor = AtmosphereHelper.GetDensityMilliMolesPerLire(Loop.InternalAtmosphere);
 
             // Pump_head factor (higher head/pressure = harder to pump fluid) 
-            float pumpHeadFactor = (SourceAtmosphere.PressureGassesAndLiquids / InternalAtmosphere.PressureGassesAndLiquids).ToFloat();
+            float pumpHeadFactor = (Loop.InternalAtmosphere.PressureGassesAndLiquids / InternalAtmosphere.PressureGassesAndLiquids).ToFloat();
 
             // Maitenance factor (low maintenance = less efficient)
             // OrganLungs.DamageEfficiency
 
             return Mathf.Clamp01((pumpHeadFactor * Loop.DamageEfficiency) / densityLiquidFactor) * (float)DifficultySetting.Current.BreathingRate;
         }
-        // Integration into VentLoop
-        public void DoVentLoop()
-        {
-            float flowRate = Loop.VentRate * VentingEfficiency();
-            float energyChange = -20f * flowRate;
 
-            if (ApplyPowerDelta(energyChange))
-            {
-                AtmosphereHelper.MoveVolume(
-                    InternalAtmosphere,
-                    TargetAtmosphere,
-                    new VolumeLitres(flowRate),
-                    AtmosphereHelper.MatterState.Gas, MoleQuantity.Zero);
-            }
-        }
-
-        public void DoPumpLoop()
-        {
-            float flowRate = Loop.PumpRate * PumpingEfficiency();
-            float energyChange = -100f * flowRate;
-
-            if (ApplyPowerDelta(energyChange))
-            {
-                AtmosphereHelper.MoveLiquidVolume(
-                SourceAtmosphere,
-                InternalAtmosphere,
-                new VolumeLitres(flowRate));
-            }
-        }
-        public override DelayedActionInstance InteractWith(Interactable interactable, Interaction interaction, bool doAction = true)
-        {
-            DelayedActionInstance delayedActionInstance = new()
-            {
-                Duration = 0f,
-                ActionMessage = interactable.ContextualName
-            };
-            switch (interactable.Action)
-            {
-                case InteractableType.Open:
-                case InteractableType.OnOff:
-                    if (!doAction)
-                    {
-                        return delayedActionInstance.Succeed();
-                    }
-                    OnServer.Interact(interactable, (interactable.State != 1) ? 1 : 0);
-                    return delayedActionInstance.Succeed();
-                case InteractableType.Import:
-                    if (IsLocked)
-                    {
-                        return delayedActionInstance.Fail(GameStrings.DeviceLocked);
-                    }
-                    if (!CanPump) return delayedActionInstance.Fail("Can't Pump");
-                    if (!doAction)
-                    {
-                        return delayedActionInstance.Succeed();
-                    }
-                    // if (ParentEntity?.IsLocalPlayer is true)
-                    // {
-                    //     UIAudioManager.Play(SuitButtonUpHash);
-                    // }
-                    OnServer.Interact(interactable, (interactable.State != 1) ? 1 : 0);
-                    return delayedActionInstance.Succeed();
-                case InteractableType.Export:
-                    if (IsLocked)
-                    {
-                        return delayedActionInstance.Fail(GameStrings.DeviceLocked);
-                    }
-                    if (!CanVent) return delayedActionInstance.Fail("Can't Vent");
-                    if (!doAction)
-                    {
-                        return delayedActionInstance.Succeed();
-                    }
-                    // if (ParentEntity?.IsLocalPlayer is true)
-                    // {
-                    //     UIAudioManager.Play(SuitButtonUpHash);
-                    // }
-                    OnServer.Interact(interactable, (interactable.State != 1) ? 1 : 0);
-                    return delayedActionInstance.Succeed();
-                default:
-                    return base.InteractWith(interactable, interaction, doAction);
-            }
-        }
-
+        // public override DelayedActionInstance InteractWith(Interactable interactable, Interaction interaction, bool doAction = true)
+        // {
+        //     ErixMekxMain.Log($"{interactable}:  State {interactable.State}");
+        //     DelayedActionInstance delayedActionInstance = new()
+        //     {
+        //         Duration = 0f,
+        //         ActionMessage = interactable.ContextualName
+        //     };
+        //     switch (interactable.Action)
+        //     {
+        // 	case InteractableType.Button1:
+        // 		if (OutputSetting >= MaxSetting)
+        // 		{
+        // 			return delayedActionInstance.Fail(GameStrings.GlobalAlreadyMax);
+        // 		}
+        // 		if (!doAction)
+        // 		{
+        // 			return delayedActionInstance.Succeed();
+        // 		}
+        // 		// if (Loop.ParentEntity?.IsLocalPlayer is true)
+        // 		// {
+        // 		// 	UIAudioManager.Play(SuitButtonUpHash);
+        // 		// }
+        // 		if (GameManager.RunSimulation)
+        // 		{
+        // 			OutputSetting = Mathf.Min(OutputSetting + 1f, MaxSetting);
+        // 		}
+        //             OnPressureChanged?.Invoke();
+        //             return delayedActionInstance.Succeed();
+        // 	case InteractableType.Button2:
+        // 		if (OutputSetting <= MinSetting)
+        // 		{
+        // 			return delayedActionInstance.Fail(GameStrings.GlobalAlreadyMin);
+        // 		}
+        // 		if (!doAction)
+        // 		{
+        // 			return delayedActionInstance.Succeed();
+        // 		}
+        // 		// if (Loop.ParentEntity?.IsLocalPlayer is true)
+        // 		// {
+        // 		// 	UIAudioManager.Play(SuitButtonDownHash);
+        // 		// }
+        // 		if (GameManager.RunSimulation)
+        // 		{
+        // 			OutputSetting = Mathf.Max(OutputSetting - 1f, MinSetting);
+        // 		}
+        //             OnPressureChanged?.Invoke();
+        //             return delayedActionInstance.Succeed();
+        //         default:
+        //             return base.InteractWith(interactable, interaction, doAction);
+        //     }
+        // }
         public override string GetContextualName(Interactable interactable)
         {
             return interactable.Action switch
             {
-                InteractableType.Import => PumpLoop + ((Importing == 0) ? ActionStrings.On : ActionStrings.Off),
-                InteractableType.Export => VentLoop + ((Exporting == 0) ? ActionStrings.On : ActionStrings.Off),
+                InteractableType.Import => ImportLoop + ((Importing == 0) ? ActionStrings.Off : ActionStrings.On),
+                InteractableType.Export => ExportLoop + ((Exporting == 0) ? ActionStrings.Off : ActionStrings.On),
                 _ => base.GetContextualName(interactable),
             };
         }

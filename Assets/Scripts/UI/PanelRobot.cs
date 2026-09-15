@@ -35,10 +35,6 @@ namespace ErixMekx.UI
 
         private Human Robot => InventoryWindowManager.Instance.Parent as Human;
         private LungsRobot CoolingLoop => Robot?.LungsSlot.Get<LungsRobot>();
-
-        [Header("Thresholds")]
-        // Matching base game logic for "Too Hot/Cold" and "High/Low Pressure"
-        private const float ShowPressureLowLimit = 10f;    // kPa
         private float ShowPressureHighLimit => CoolingLoop.PressureLimit.ToFloat(); // kPa
         private float ShowTooColdLimit => Systems.RobotConfig.TempMinCelsius.Value;  // Celsius offset from ZeroDegrees
         private float ShowTooHotLimit => Systems.RobotConfig.TempMaxCelsius.Value; // Celsius offset from ZeroDegrees
@@ -138,11 +134,6 @@ namespace ErixMekx.UI
             if (pfloat > ShowPressureHighLimit)
             {
                 PressureChangeIcon.SetImage(1); // High
-                PressureChangeIcon.HideImage(false);
-            }
-            else if (pfloat < ShowPressureLowLimit)
-            {
-                PressureChangeIcon.SetImage(0); // Low
                 PressureChangeIcon.HideImage(false);
             }
             else

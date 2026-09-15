@@ -4,6 +4,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using ErixMekx.UI;
 using HarmonyLib;
+using JetBrains.Annotations;
 using LaunchPadBooster;
 using UnityEngine;
 
@@ -54,6 +55,7 @@ namespace ErixMekx
             }
         }
 
+        [UsedImplicitly]
         private void OnDestroy()
         {
             Log($"OnDestroy (Version: {PluginVersion})");

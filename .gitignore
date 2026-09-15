@@ -102,7 +102,6 @@ InitTestScene*.unity*
 *repomix*
 
 # --- Unity Folders ---
-/Packages/
 /ProjectSettings/
 /UIElementsSchema/
 
@@ -114,6 +113,10 @@ InitTestScene*.unity*
 !/Assets/About/
 !/Assets/Scripts/
 !/Assets/GameData/
+# !/Assets/Texture*/
+# !/Assets/Material/
+# !/Assets/Models/
+# !/Assets/Prefabs/
 
 # 3. Now that the folders are "open", ignore all .meta files globally
 *.meta

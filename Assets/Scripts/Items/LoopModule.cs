@@ -1,103 +1,137 @@
-
+using Assets.Scripts;
 using Assets.Scripts.Atmospherics;
+using Assets.Scripts.GridSystem;
+using Assets.Scripts.Inventory;
+using Assets.Scripts.Localization2;
 using Assets.Scripts.Objects;
-using Assets.Scripts.Objects.Electrical;
-using Assets.Scripts.Objects.Entities;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.Util;
 using ErixMekx.Organs;
 using ErixMekx.Systems;
 using UnityEngine;
+using UnityEngine.Serialization;
+using GameString = Assets.Scripts.Localization2.GameString;
 
 namespace ErixMekx.Items
 {
-    public interface ILoopModule : IReferencable//, IDensePoolable
-    {
-        // The core method called by the Organ every tick
-        void Tick();
-
-        // Allows the organ to query if the module is currently active/powered
-        bool IsActive { get; }
-    }
     public abstract class LoopModuleBase : Item, ILoopModule
     {
-        //TODO: Circuit connections and I'd like bboxes for it's slots as well as a reading from the atmospheric tablet
-        public Human Robot => ParentSlot.Parent as Human;
-        public LungsRobot Loop => Robot.OrganLungs as LungsRobot;
+        [SerializeField]
+        public float volume = 1f;
+        public VolumeLitres Volume => new(volume);
+        public BatteryCell RobotBattery => Loop.RobotBattery;
         public virtual bool IsActive { get; protected set; } = true;
+        public bool IsEmpty => InternalAtmosphere?.GasMixture.GetTotalMolesGassesAndLiquids < Chemistry.MINIMUM_QUANTITY_MOLES;
+        public LungsRobot Loop
+        {
+            get
+            {
+                Slot.Class? obj = base.ParentSlot?.Type;
+                if (!obj.HasValue || obj != Slot.Class.SuitMod) return null;
+                return base.ParentSlot?.Parent as LungsRobot;
+            }
+        }
+        public override void InitInternalAtmosphere()
+        {
+            base.InternalAtmosphere ??= new Atmosphere(this, Volume, 0L);
+            base.InternalAtmosphere.Add(GasMixtureHelper.Create ());
+            // AtmosphericEventInstance.CreateAdd(atmosphere: base.InternalAtmosphere, gasMixture: GasMixtureHelper.Create ());
+        }
+		// public override void OnAtmosphericTick()
+		// {
+        //             ErixMekxMain.Log("OnAtmosphericTick");
+		// 	if (GameManager.GameState == GameState.Running && Loop != null)
+		// 	{
+		// 		CheckPowerState();
+		// 		CheckImportState();
+		// 		CheckExportState();
+		// 	}
+		// 	base.OnAtmosphericTick();
+		// }
+        public abstract void OnTick();
 
-        // Abstract method: Each specific module (Water, Cryo, etc.) implements its own loop logic
-        public abstract void Tick();
+        // protected void CheckPowerState()
+        // {
+        //     if (Powered && (RobotBattery?.IsEmpty is not false))
+        //         OnServer.Interact(base.InteractPowered, 0, skipAnimation: true);
+        //     else if (!Powered && RobotBattery?.IsEmpty is false)
+        //         OnServer.Interact(base.InteractPowered, 1, skipAnimation: true);
+        // }
+        // protected void CheckImportState()
+        // {
+        //     if (Importing == 1 && (Loop?.IsEmpty is not false))
+        //         OnServer.Interact(base.InteractImport, 0, skipAnimation: true);
+        //     else if (Importing != 1 && Loop?.IsEmpty is false)
+        //         OnServer.Interact(base.InteractImport, 1, skipAnimation: true);
+        // }
+        // protected void CheckExportState()
+        // {
+        //     if (Exporting == 1 && (IsEmpty || !Loop))
+        //         OnServer.Interact(base.InteractImport, 0, skipAnimation: true);
+        //     else if (Exporting != 1 && !IsEmpty && Loop)
+        //         OnServer.Interact(base.InteractImport, 1, skipAnimation: true);
+        // }
+
+        // --- REUSABLE LOGIC START ---
 
         /// <summary>
-        /// Handles bidirectional power flow between the module and the Robot Battery.
+        /// Shared utility for passive gas transfer between this module and another atmosphere.
         /// </summary>
-        /// <param name="powerDelta">Positive for charging, negative for draining.</param>
-        /// <returns>True if the operation was successful (e.g., enough power existed for a drain).</returns>
-        protected bool ApplyPowerDelta(float powerDelta)
+        protected void PerformPassiveGasTransfer(Atmosphere inputAtmos, Atmosphere outputAtmos, float rate = 0.1f)
         {
-            Human human = Loop.ParentEntity as Human;
-            if (human == null || human.RobotBattery == null) return false;
+            if (inputAtmos == null || outputAtmos == null) return;
+            // density of gas in lungs (higher density = harder to pump gas)
+            // AtmosphereHelper.GetDensityMilliMolesPerLire(InternalAtmosphere);
+            float densityGasFactor = (float)IdealGas.GetMilliMolesPerLitre(inputAtmos.Volume, inputAtmos.TotalMolesGases);
+            // pump head factor (higher pressure = harder to pump)
+            float pumpHeadFactor = (inputAtmos.PressureGassesAndLiquids / outputAtmos.PressureGassesAndLiquids).ToFloat();
+            // Maitenance factor (low maintenance = less efficient)
+            // OrganLungs.DamageEfficiency
 
-            float multiplier = (Loop.ParentEntity.OrganBrain.IsOnline ? 1f : (float)DifficultySetting.Current.OfflineMetabolism);
-            float finalDelta = multiplier * powerDelta * (float)DifficultySetting.Current.RobotBatteryRate;
+            float factor = Mathf.Clamp01((pumpHeadFactor * Loop.DamageEfficiency) / densityGasFactor) * (float)DifficultySetting.Current.BreathingRate;
 
-            // --- CASE 1: DRAINING POWER (Negative Delta) ---
-            if (finalDelta < 0)
+            // Use Stationeers' built-in passive transfer logic or a simplified mole move
+            AtmosphereHelper.MoveVolume(inputAtmos, outputAtmos, new VolumeLitres(rate), AtmosphereHelper.MatterState.Gas, MoleQuantity.Zero);
+            // AtmosphereHelper.MoveRegulatedGas(InternalAtmosphere, target, new VolumeLitres(rate * factor));
+        }
+        public override DelayedActionInstance InteractWith(Interactable interactable, Interaction interaction, bool doAction = true)
+        {
+            DelayedActionInstance delayedActionInstance = new()
             {
-                if (human.RobotBattery.PowerStored > Mathf.Abs(finalDelta))
-                {
-                    human.RobotBattery.PowerStored += finalDelta;
-                    return true;
-                }
-                // If we can't afford the full cost, we don't run the loop at all
-                return false;
-            }
-
-            // --- CASE 2: GAINING POWER (Positive Delta) ---
-            if (finalDelta > 0)
+                Duration = 0f,
+                ActionMessage = interactable.ContextualName
+            };
+            switch (interactable.Action)
             {
-                float currentPower = human.RobotBattery.PowerStored;
-                float maxPower = human.RobotBattery.PowerMaximum;
-
-                if (currentPower < maxPower)
-                {
-                    float spaceLeft = maxPower - currentPower;
-                    float amountToStore = Mathf.Min(finalDelta, spaceLeft);
-                    float excessEnergy = finalDelta - amountToStore;
-
-                    human.RobotBattery.PowerStored += amountToStore;
-
-                    // HANDLE EXCESS ENERGY: Convert waste to heat in the lungs
-                    if (excessEnergy > 0 && Loop.InternalAtmosphere != null)
+                case InteractableType.Open:
+                case InteractableType.OnOff:
+                    if (!doAction)
                     {
-                        HandleThermalBleed(excessEnergy);
+                        return delayedActionInstance.Succeed();
                     }
-
-                    return true; // We stored at least some energy
-                }
-                else
-                {
-                    // Battery is completely full: All energy becomes heat
-                    if (Loop.InternalAtmosphere != null)
+                    OnServer.Interact(interactable, (interactable.State != 1) ? 1 : 0);
+                    return delayedActionInstance.Succeed();
+                case InteractableType.Import:
+                case InteractableType.Export:
+                    if (IsLocked)
                     {
-                        HandleThermalBleed(finalDelta);
-                        return true;
+                        return delayedActionInstance.Fail(GameStrings.DeviceLocked);
                     }
-                    return false; // Failed to store any energy
-                }
+                    if (!doAction)
+                    {
+                        return delayedActionInstance.Succeed();
+                    }
+                    // if (ParentEntity?.IsLocalPlayer is true)
+                    // {
+                    //     UIAudioManager.Play(SuitButtonUpHash);
+                    // }
+                    OnServer.Interact(interactable, (interactable.State != 1) ? 1 : 0);
+                    return delayedActionInstance.Succeed();
+                default:
+                    return base.InteractWith(interactable, interaction, doAction);
             }
-
-            return true;
         }
 
-        private void HandleThermalBleed(float wastedEnergy)
-        {
-            // Convert the "Power" units (Watts/Joules) into MoleEnergy for the atmosphere
-            // We use a coefficient to simulate efficiency losses
-            MoleEnergy heatGain = new(wastedEnergy * RobotConfig.ThermalBleedCoefficient.Value);
-
-            Loop.InternalAtmosphere.GasMixture.AddEnergy(heatGain);
-        }
+        // --- REUSABLE LOGIC END ---
     }
 }

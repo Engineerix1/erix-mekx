@@ -100,6 +100,7 @@ namespace ErixMekx.UI
         public void OnSlotOccupantChanged()
         {
             TargetSlot?.Display.InitialiseRoot();
+            TargetSlot?.Get<LoopModuleBase>()?.SetWorldAtmosphere();
         }
 
 

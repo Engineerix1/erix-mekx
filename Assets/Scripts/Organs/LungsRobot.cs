@@ -1,11 +1,13 @@
 using Assets.Scripts;
 using Assets.Scripts.Atmospherics;
+using Assets.Scripts.GridSystem;
 using Assets.Scripts.Localization2;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Entities;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.Util;
 using ErixMekx.Items;
+using ErixMekx.Systems;
 using ErixMekx.UI;
 using UnityEngine;
 
@@ -15,48 +17,57 @@ namespace ErixMekx.Organs
     {
         // The slot where the CoolingModule will be placed
         public Slot ModuleSlot => Slots[0];
+        public Human Robot => ParentEntity as Human;
+        private const float EXPLOSION_FORCE = 200f;
 
-        protected override TemperatureKelvin TemperatureMin => new(Chemistry.Temperature.ZERO_DEGREES + Systems.RobotConfig.TempMinCelsius.Value);
-        protected override TemperatureKelvin TemperatureMax => new(Chemistry.Temperature.ZERO_DEGREES + Systems.RobotConfig.TempMaxCelsius.Value);
+        private const float EXPLOSION_RADIUS = 2.3f;
+
+        protected override TemperatureKelvin TemperatureMin => new(Chemistry.Temperature.ZERO_DEGREES + RobotConfig.TempMinCelsius.Value);
+        protected override TemperatureKelvin TemperatureMax => new(Chemistry.Temperature.ZERO_DEGREES + RobotConfig.TempMaxCelsius.Value);
         protected override PressurekPa ToxinLevel => base.InternalAtmosphere.PartialPressureAcid;
-        public PressurekPa PressureLimit => new(Chemistry.ONE_ATMOSPHERE * Systems.RobotConfig.PressureLimitAtm.Value);
-        public float VentRate => Systems.RobotConfig.PumpRate.Value;
-        public float PumpRate => Systems.RobotConfig.PumpRate.Value;
-        public float Overpressure => Systems.RobotConfig.OverpressureThreshold.Value;
+        public PressurekPa PressureLimit => new(Chemistry.ONE_ATMOSPHERE * RobotConfig.PressureLimitAtm.Value);
+        public float VentRate = Chemistry.ONE_ATMOSPHERE / 2;
+        public float PumpRate => RobotConfig.PumpRate.Value;
+        public float Overpressure => RobotConfig.OverpressureThreshold.Value;
+        public bool IsEmpty => InternalAtmosphere?.GasMixture.GetTotalMolesGassesAndLiquids < Chemistry.MINIMUM_VALID_TOTAL_MOLES;
 
         private BatteryCell lastBatteryInstance = null;
+        public BatteryCell RobotBattery => (ParentEntity as Human).RobotBattery;
         private float lastBatteryCharge = -1f;
+        private bool IsError
+        {
+            get
+            {
+                if (!IsEmpty)
+                {
+                    // return !_hasBlown;
+                    // return leaks;
+                    return false;
+                }
+                return true;
+            }
+        }
         public override void OnLifeTick()
         {
-            if (InternalAtmosphere == null) return;
-
-            // 1. Global Power-to-Heat Conversion
-            HandleGlobalWasteHeat();
-
-            // 2. Module Logic
-            if (ModuleSlot.Contains<ILoopModule>())
+            if (GameManager.GameState == GameState.Running)
             {
-                ILoopModule module = ModuleSlot.Get<ILoopModule>();
-                if (module.IsActive)
-                    module?.Tick();
+                HandleGlobalWasteHeat();
+                EvaluateModules();
+                CheckAtmosphereState();
+                ProcessEnvironmentalDamage();
             }
-
-            // 3. Damage Tracking
-            ProcessEnvironmentalDamage();
         }
 
         private void HandleGlobalWasteHeat()
         {
-            Human human = ParentEntity as Human;
-            if (human == null || human.RobotBattery == null) return;
+            if (ParentEntity == null || RobotBattery == null) return;
 
-            BatteryCell currentBattery = human.RobotBattery;
-            float currentCharge = currentBattery.PowerStored;
+            float currentCharge = RobotBattery.PowerStored;
 
             // 1. Handle Battery Swap: If the instance changed, reset and exit
-            if (lastBatteryInstance != currentBattery)
+            if (lastBatteryInstance != RobotBattery)
             {
-                lastBatteryInstance = currentBattery;
+                lastBatteryInstance = RobotBattery;
                 lastBatteryCharge = currentCharge;
                 return; // Skip heat calculation for this tick to avoid spikes
             }
@@ -78,6 +89,63 @@ namespace ErixMekx.Organs
 
             // Update tracker for next tick
             lastBatteryCharge = currentCharge;
+        }
+
+        private void EvaluateModules()
+        {
+            if (ModuleSlot.Contains<ILoopModule>())
+            {
+                ILoopModule module = ModuleSlot.Get<ILoopModule>();
+                if (module.IsActive)
+                    module.OnTick();
+                    // float num = module.OnTick();
+                    // RequestPower(num);
+            }
+        }
+        public bool RequestPower(float delta)
+        {
+            if (!Powered) return false;
+            // if (RobotBattery == null) return false;
+
+            // Apply difficulty multipliers and metabolism here once
+            float multiplier = ParentEntity.OrganBrain.IsOnline ? 1f : (float)DifficultySetting.Current.OfflineMetabolism;
+            float finalDelta = multiplier * delta * (float)DifficultySetting.Current.RobotBatteryRate;
+
+            if (finalDelta < 0) // Draining
+            {
+                if (RobotBattery.PowerStored > Mathf.Abs(finalDelta))
+                {
+                    RobotBattery.PowerStored += finalDelta;
+                    return true;
+                }
+                return false;
+            }
+            else // Charging/Excess
+            {
+                // Handle charging and Thermal Bleed into the loop atmosphere
+                float spaceLeft = RobotBattery.PowerMaximum - RobotBattery.PowerStored;
+                float amountToStore = Mathf.Min(finalDelta, spaceLeft);
+                RobotBattery.PowerStored += amountToStore;
+
+                float excess = finalDelta - amountToStore;
+                if (excess > 0 && InternalAtmosphere != null)
+                {
+                    InternalAtmosphere.GasMixture.AddEnergy(new MoleEnergy(excess * RobotConfig.ThermalBleedCoefficient.Value));
+                }
+                return true;
+            }
+        }
+        private void CheckAtmosphereState()
+        {
+            if (Powered)
+            {
+                bool isError = IsError;
+                if (Error == 0 && isError)
+                {
+                    OnServer.Interact(base.InteractError, 1);
+                }
+                OnServer.Interact(base.InteractError, 0);
+            }
         }
 
         private void ProcessEnvironmentalDamage()
@@ -105,9 +173,9 @@ namespace ErixMekx.Organs
 
                 // Overpressure Damage
                 float pressureRatio = (InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat();
-                if (pressureRatio > Systems.RobotConfig.OverpressureThreshold.Value)
+                if (pressureRatio > RobotConfig.OverpressureThreshold.Value)
                 {
-                    float overpressureFactor = Mathf.Clamp01(pressureRatio - Systems.RobotConfig.OverpressureThreshold.Value);
+                    float overpressureFactor = Mathf.Clamp01(pressureRatio - RobotConfig.OverpressureThreshold.Value);
                     DamageState.Damage(ChangeDamageType.Increment, Mathf.Min(3f * overpressureFactor, damageCap), DamageUpdateType.Brute);
                 }
 
@@ -173,26 +241,55 @@ namespace ErixMekx.Organs
         }
 
 
-        //TODO: Either we blow up and keep around to give players a chance to fix lungs or kill the player with the explosion
-		// public override void OnDamageDestroyed()
+        //TODO: Either we add leaks up and keep around to give players a chance to fix lungs or kill the player with the explosion
+        // public override void OnDamageDestroyed()
         // {
         //     // SetBrokenMesh();
         //     if (GameManager.RunSimulation && !_hasBlown)
-		// 	{
-		// 		if (base.InternalAtmosphere.PressureGassesAndLiquids > PressurekPa.Zero)
-		// 		{
-		// 			global::Explosion.Explode(_explosionForce * (base.InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat(), radius: Mathf.Clamp(_explosionRadius * (base.InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat(), 0f, _maxExplosionRadius), pos: base.transform.position, maxDamage: float.MaxValue, mineTerrain: true);
-		// 			AtmosphericEventInstance.CloneGlobalAddGasMix(base.WorldGrid, new GasMixture(base.InternalAtmosphere.GasMixture), spark: true);
-		// 			AtmosphericEventInstance.Reset(base.InternalAtmosphere);
-		// 		}
-		// 		DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Burn);
-		// 		DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Brute);
-		// 		_hasBlown = true;
-		// 	}
-		// 	else if (_hasBlown)
-		// 	{
-		// 		base.OnDamageDestroyed();
-		// 	}
-		// }
+        // 	{
+        // 		if (base.InternalAtmosphere.PressureGassesAndLiquids > PressurekPa.Zero)
+        // 		{
+        // 			global::Explosion.Explode(_explosionForce * (base.InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat(), radius: Mathf.Clamp(_explosionRadius * (base.InternalAtmosphere.PressureGassesAndLiquids / PressureLimit).ToFloat(), 0f, _maxExplosionRadius), pos: base.transform.position, maxDamage: float.MaxValue, mineTerrain: true);
+        // 			AtmosphericEventInstance.CloneGlobalAddGasMix(base.WorldGrid, new GasMixture(base.InternalAtmosphere.GasMixture), spark: true);
+        // 			AtmosphericEventInstance.Reset(base.InternalAtmosphere);
+        // 		}
+        // 		DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Burn);
+        // 		DamageState.Damage(ChangeDamageType.Set, 0f, DamageUpdateType.Brute);
+        // 		_hasBlown = true;
+        // 	}
+        // 	else if (_hasBlown)
+        // 	{
+        // 		base.OnDamageDestroyed();
+        // 	}
+        // }
+        // public override void OnDestroy()
+        // {
+        // 	if (Singleton<GameManager>.IsQuitting)
+        // 	{
+        // 		return;
+        // 	}
+        // 	base.OnDestroy();
+        // 	foreach (LeakReference leakReference in LeakReferences)
+        // 	{
+        // 		if (leakReference != null && !(leakReference.Visualizer == null))
+        // 		{
+        // 			leakReference.Visualizer.SetActive(value: false);
+        // 			if (leakReference.LeakTask.Status != UniTaskStatus.Pending)
+        // 			{
+        // 				leakReference.Cancel();
+        // 			}
+        // 		}
+        // 	}
+        // 	LeakReferences = null;
+        // 	if (!Singleton<GameManager>.IsQuitting)
+        // 	{
+        // 		base.OnDestroy();
+        // 		ElectricityManager.Deregister(this);
+        // 		if (!IsCursor)
+        // 		{
+        // 			CircuitHolders.Deregister(this);
+        // 		}
+        // 	}
+        // }
     }
 }
