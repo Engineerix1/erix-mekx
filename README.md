@@ -10,7 +10,7 @@ Robots no longer consume power with no respect to the laws of thermodynamics; us
 - **Pressure Management:** High pressure in the cooling loop can cause "Brute" damage (Overpressure). Conversely, a total loss of coolant leads to rapid system failure.
 - **Toxin Sensitivity:** Certain gases act as contaminants within the loop, causing toxic damage if not flushed.
 - **Leaks & Ruptures:** Overpressure that isn't brought back under control doesn't just tick damage forever - sustained overpressure builds structural stress, and once that stress caps out the loop springs an active leak. A leaking loop keeps bleeding gas and taking brute damage, and keeps getting worse, until a player actively services it (the Flush interaction now also patches leaks). Ignore it long enough and the organ ruptures catastrophically instead of quietly tanking damage.
-- **Coolant Degradation:** Coolant isn't inert - it slowly breaks down into a corrosive contaminant over time, faster if the loop is running hot or is already damaged. That buildup feeds directly into the toxin damage above, so an unmaintained loop starts poisoning itself.
+- **Coolant Degradation:** The loop's own housing slowly corrodes under sustained heat and structural damage, leaching a corrosive contaminant into whatever coolant is running through it (the coolant chemical itself isn't consumed - any chemical can be used as coolant). That buildup feeds directly into the toxin damage above, so a neglected loop starts poisoning itself.
 
 ### Modular Upgrades
 The cooling organ features a dedicated module slot. By installing different modules, you can change how your robot interacts with the environment:

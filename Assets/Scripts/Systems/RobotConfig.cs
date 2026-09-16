@@ -62,9 +62,9 @@ namespace ErixMekx.Systems
             LeakStructuralDamageRate = config.Bind("Damage", "Leak Structural Damage Rate", 1f, "Brute damage applied per tick from an active, unpatched leak at full (1.0) severity.");
             LeakRepairAmount = config.Bind("Damage", "Leak Repair Amount", .35f, "How much leak severity is reduced each time the loop is serviced via the Flush interaction.");
 
-            CoolantDegradationRate = config.Bind("Coolant", "Coolant Degradation Rate", .01f, "Baseline moles of coolant converted into corrosive contaminant per tick.");
-            CoolantDegradationHeatFactor = config.Bind("Coolant", "Coolant Degradation Heat Factor", .05f, "Extra degradation added per degree the loop runs above its maximum safe temperature.");
-            CoolantDegradationDamageFactor = config.Bind("Coolant", "Coolant Degradation Damage Factor", 1f, "Extra degradation added in proportion to existing organ damage, i.e. how far DamageEfficiency has fallen below 1.");
+            CoolantDegradationRate = config.Bind("Coolant", "Coolant Degradation Rate", .01f, "Baseline moles of corrosive contaminant leached from the loop housing into the coolant per tick.");
+            CoolantDegradationHeatFactor = config.Bind("Coolant", "Coolant Degradation Heat Factor", .05f, "Extra corrosion added per degree the loop runs above its maximum safe temperature.");
+            CoolantDegradationDamageFactor = config.Bind("Coolant", "Coolant Degradation Damage Factor", 1f, "Extra corrosion added in proportion to existing organ damage, i.e. how far DamageEfficiency has fallen below 1.");
             FilterRate = config.Bind("Coolant", "Filter Rate", .2f, "Moles of contaminant a Coolant Filter Module can scrub per tick at full efficiency.");
         }
     }

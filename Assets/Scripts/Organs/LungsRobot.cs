@@ -265,13 +265,14 @@ namespace ErixMekx.Organs
         }
 
         /// <summary>
-        /// Coolant is not inert: whatever chemical is actually filling the loop slowly
-        /// breaks down into a corrosive contaminant (hydrochloric acid) over time, faster
-        /// when the loop runs hot or the organ is already damaged. The loop isn't limited
-        /// to water - any chemical can serve as coolant - so this degrades whatever gas
-        /// types are actually present rather than assuming a specific one. The buildup
-        /// feeds directly into the existing ToxinLevel/ToxicTypes damage check above, so
-        /// an unmaintained loop starts poisoning itself regardless of what it's filled with.
+        /// The coolant chemical itself is never consumed or transmuted here - any chemical
+        /// can serve as coolant, and there's no real reaction that turns an arbitrary gas
+        /// into acid. Instead, sustained heat and structural damage corrode the loop's own
+        /// housing, leaching trace hydrochloric acid into whatever is flowing through it -
+        /// the same way an overheated or damaged metal loop leaches contaminants into its
+        /// working fluid in reality. That buildup feeds directly into the existing
+        /// ToxinLevel/ToxicTypes damage check above, so a neglected loop slowly poisons
+        /// itself regardless of what chemical it's filled with.
         /// </summary>
         private void ProcessCoolantDegradation()
         {
@@ -279,16 +280,10 @@ namespace ErixMekx.Organs
 
             float heatStress = Mathf.Max(0f, (InternalAtmosphere.Temperature - TemperatureMax).ToFloat()) * RobotConfig.CoolantDegradationHeatFactor.Value;
             float damageStress = Mathf.Max(0f, 1f - DamageEfficiency) * RobotConfig.CoolantDegradationDamageFactor.Value;
-            float degradationAmount = RobotConfig.CoolantDegradationRate.Value * (1f + heatStress + damageStress);
-            if (degradationAmount <= 0f) return;
+            float corrosionAmount = RobotConfig.CoolantDegradationRate.Value * (1f + heatStress + damageStress);
+            if (corrosionAmount <= 0f) return;
 
-            MoleQuantity quantity = new(degradationAmount);
-            foreach (Chemistry.GasType gasType in Assets.Scripts.EnumCollections.GasTypes.Values)
-            {
-                if (gasType == Chemistry.GasType.Undefined || gasType == Chemistry.GasType.HydrochloricAcid) continue;
-                InternalAtmosphere.GasMixture.Remove(gasType, quantity);
-            }
-
+            MoleQuantity quantity = new(corrosionAmount);
             MoleEnergy energy = new(InternalAtmosphere.Temperature, Mole.SpecificHeat(Chemistry.GasType.HydrochloricAcid), quantity);
             InternalAtmosphere.Add(new GasMixture(new Mole(Chemistry.GasType.HydrochloricAcid, quantity, energy)));
         }
