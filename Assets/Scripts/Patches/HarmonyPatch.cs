@@ -60,7 +60,7 @@ namespace ErixMekx.Patches
             // Delegate all UI work to the Manager
             // TODO Possibly check for presence of lungs and remove if not ours or not present
             if (__instance.Parent?.IsArtificial is not true) { RobotUIManager.Instance.Cleanup(); return; }
-            if (!RobotUIManager.Instance.IsSetup) RobotUIManager.Instance.SetupRobotUI();
+            if (!RobotUIManager.Instance.IsSetup) RobotUIManager.Instance.SetupRobotUI(__instance);
             RobotUIManager.Instance.SetVisible(true);
         }
     }

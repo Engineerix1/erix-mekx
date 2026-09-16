@@ -33,32 +33,45 @@ namespace ErixMekx.UI
             }
         }
 
-        public void SetupRobotUI()
+        public void SetupRobotUI(PlayerStateWindow window)
         {
             Cleanup();
 
             // Handle the Custom HUD Panel
-            SpawnRobotHUD();
+            SpawnRobotHUD(window);
 
             InjectTargetSlot();
             IsSetup = true;
         }
 
-        private void SpawnRobotHUD()
+        private void SpawnRobotHUD(PlayerStateWindow window)
         {
             if (ErixMekxMain.PanelRobotPrefab == null) return;
 
-            // Locate the PanelVerticalGroup in the hierarchy
-            GameObject verticalGroupObj = GameObject.Find("PanelVerticalGroup");
+            // Locate PanelVerticalGroup within the actual window we were patched on, rather than
+            // searching the whole scene - scoped to a live instance we already have a reference to,
+            // and immune to unrelated same-named objects elsewhere in the scene.
+            Transform verticalGroup = FindDeepChild(window.transform, "PanelVerticalGroup");
 
-            if (verticalGroupObj == null)
+            if (verticalGroup == null)
             {
-                Debug.LogError("[ErixMekx] Could not find PanelVerticalGroup in scene!");
+                Debug.LogError("[ErixMekx] Could not find PanelVerticalGroup under PlayerStateWindow!");
                 return;
             }
 
-            Transform grid = verticalGroupObj.transform;
-            _robotHUDPanelObj = Object.Instantiate(ErixMekxMain.PanelRobotPrefab, grid, false);
+            _robotHUDPanelObj = Object.Instantiate(ErixMekxMain.PanelRobotPrefab, verticalGroup, false);
+        }
+
+        private static Transform FindDeepChild(Transform parent, string name)
+        {
+            foreach (Transform child in parent)
+            {
+                if (child.name == name) return child;
+
+                Transform found = FindDeepChild(child, name);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         private void InjectTargetSlot()
