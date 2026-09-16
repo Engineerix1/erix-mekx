@@ -113,10 +113,18 @@ InitTestScene*.unity*
 !/Assets/About/
 !/Assets/Scripts/
 !/Assets/GameData/
-# !/Assets/Texture*/
-# !/Assets/Material/
-# !/Assets/Models/
-# !/Assets/Prefabs/
+!/Assets/Texture*/
+!/Assets/Material/
+!/Assets/Models/
+!/Assets/Prefabs/
 
 # 3. Now that the folders are "open", ignore all .meta files globally
 *.meta
+
+# 4. ...except under the binary asset folders, where .meta files carry the GUIDs
+# Unity uses to resolve cross-asset references (prefab -> material -> texture, etc.).
+# Losing these regenerates new GUIDs on next import and breaks those references.
+!/Assets/Texture*/**/*.meta
+!/Assets/Material/**/*.meta
+!/Assets/Models/**/*.meta
+!/Assets/Prefabs/**/*.meta
