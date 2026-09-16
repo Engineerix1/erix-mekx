@@ -265,10 +265,13 @@ namespace ErixMekx.Organs
         }
 
         /// <summary>
-        /// Coolant is not inert: it slowly breaks down into a corrosive contaminant
-        /// (hydrochloric acid) over time, faster when the loop runs hot or the organ is
-        /// already damaged. The buildup feeds directly into the existing ToxinLevel/
-        /// ToxicTypes damage check above, so an unmaintained loop starts poisoning itself.
+        /// Coolant is not inert: whatever chemical is actually filling the loop slowly
+        /// breaks down into a corrosive contaminant (hydrochloric acid) over time, faster
+        /// when the loop runs hot or the organ is already damaged. The loop isn't limited
+        /// to water - any chemical can serve as coolant - so this degrades whatever gas
+        /// types are actually present rather than assuming a specific one. The buildup
+        /// feeds directly into the existing ToxinLevel/ToxicTypes damage check above, so
+        /// an unmaintained loop starts poisoning itself regardless of what it's filled with.
         /// </summary>
         private void ProcessCoolantDegradation()
         {
@@ -280,7 +283,11 @@ namespace ErixMekx.Organs
             if (degradationAmount <= 0f) return;
 
             MoleQuantity quantity = new(degradationAmount);
-            InternalAtmosphere.GasMixture.Remove(Chemistry.GasType.Water, quantity);
+            foreach (Chemistry.GasType gasType in Assets.Scripts.EnumCollections.GasTypes.Values)
+            {
+                if (gasType == Chemistry.GasType.Undefined || gasType == Chemistry.GasType.HydrochloricAcid) continue;
+                InternalAtmosphere.GasMixture.Remove(gasType, quantity);
+            }
 
             MoleEnergy energy = new(InternalAtmosphere.Temperature, Mole.SpecificHeat(Chemistry.GasType.HydrochloricAcid), quantity);
             InternalAtmosphere.Add(new GasMixture(new Mole(Chemistry.GasType.HydrochloricAcid, quantity, energy)));
